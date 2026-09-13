@@ -22,12 +22,11 @@ namespace IngameScript
 {
     public partial class Program : MyGridProgram
     {
-        string version = "v0.1.1";
+        string version = "v0.2.0";
         
         // Keyword Management
         string overflowTag = "[Overflow]";
         string oresTag = "[Ores]";
-        string REFINE_TAG = "[Refine]";
         
         // Cycle Speed
         static int waitSeconds = 15;
@@ -90,6 +89,8 @@ namespace IngameScript
         };
 
         int pCount = 0;
+        
+        bool priorityOreFound = false;
 
         Dictionary<int, string> ReversedOrePriorityMap = new Dictionary<int, string>();
 
@@ -103,7 +104,7 @@ namespace IngameScript
            
            GridTerminalSystem.GetBlocksOfType<IMyRefinery>(managedRefineries, refinery => refinery.CubeGrid == Me.CubeGrid);
 
-           GridTerminalSystem.GetBlocksOfType<IMyCargoContainer>(taggedCargos, container => (container.CustomName.Contains(oresTag) || container.CustomName.Contains(overflowTag) || container.CustomName.Contains(REFINE_TAG)));
+           GridTerminalSystem.GetBlocksOfType<IMyCargoContainer>(taggedCargos, container => (container.CustomName.Contains(oresTag) || container.CustomName.Contains(overflowTag)));
          
            foreach (var cargoContainer in taggedCargos)
            {
@@ -121,13 +122,6 @@ namespace IngameScript
                    managedCargo.OverflowFlag = true;
                    overflowCargo = managedCargo.Container;
                    overflowInventory = managedCargo.Inventory;
-               }
-
-               if (cargoContainer.CustomName.Contains(REFINE_TAG))
-               {
-                   managedCargo.RefineFlag = true;
-                   refineCargo = managedCargo.Container;
-                   refineInventory = managedCargo.Inventory;
                }
                
                managedCargos.Add(managedCargo);
@@ -201,7 +195,7 @@ namespace IngameScript
 
             string priority = ReversedOrePriorityMap[pCount];
 
-            Echo($"Current Priority: {priority}");
+            Echo($"Next in Queue: {priority}");
 
             if (waitTicks > 0) 
                 waitTicks--;
@@ -278,6 +272,7 @@ namespace IngameScript
             var inventoryItems = new List<MyInventoryItem>();
             foreach (var inventory in oreInventories)
             {
+                
                 inventoryItems.Clear();
                 
                 inventory.GetItems(inventoryItems);
@@ -286,19 +281,25 @@ namespace IngameScript
                 {
                     if (inventoryItems[i].Type.SubtypeId == priority)
                     {
-                        inventory.TransferItemTo(refineInventory, i, null, true, inventoryItems[i].Amount);
-                        break;
+                        foreach (var refinery in refineryContainers)
+                        {
+                            priorityOreFound = true;
+                            inventory.TransferItemTo(refinery.InventoryIn, i, null, true, (int)inventoryItems[i].Amount / managedRefineries.Count);
+                        }
                     }
                 }
             }
 
-            if (refineInventory.ItemCount == 0)
+            if (refineInventory.ItemCount == 0 && !priorityOreFound)
+            {
                 if (pCount == 9)
                     pCount = 0;
                 else
                     pCount++;
-                
-            
+            }
+
+            priorityOreFound = false;
+
             foreach (var refinery in managedRefineries)
             {
                 var outputItems = new List<MyInventoryItem>();
@@ -308,15 +309,6 @@ namespace IngameScript
                 for (var i = outputItems.Count - 1; i >= 0; i--)
                 {
                     refinery.OutputInventory.TransferItemTo(overflowInventory, i, null, true, outputItems[i].Amount);
-                }
-                
-                var sourceItems = new List<MyInventoryItem>();
-                refineInventory.GetItems(sourceItems);
-
-                for (var i = sourceItems.Count - 1; i >= 0; i--)
-                {
-                    var qtyToTransfer = (int)sourceItems[i].Amount / managedRefineries.Count;
-                    refinery.InputInventory.TransferItemFrom(refineInventory, i, null, true, qtyToTransfer);
                 }
                
             }
