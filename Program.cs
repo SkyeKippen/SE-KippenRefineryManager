@@ -22,7 +22,7 @@ namespace IngameScript
 {
     public partial class Program : MyGridProgram
     {
-        string version = "v0.1.0";
+        string version = "v0.1.1";
         
         // Keyword Management
         string overflowTag = "[Overflow]";
@@ -211,10 +211,21 @@ namespace IngameScript
 
             if (argument == "flush")
             {
+                priority = ReversedOrePriorityMap[0];
+                
+                var items = new List<MyInventoryItem>();
+                
+                refineInventory.GetItems(items);
+
+                for (var i = items.Count - 1; i >= 0; i--)
+                {
+                    refineInventory.TransferItemTo(overflowInventory, i, null, true, items[i].Amount);
+                }
+
+                
                 foreach (var refinery in managedRefineries)
                 {
-                    // Boot Phase: Empty output of all refineries
-                    var items = new List<MyInventoryItem>();
+                    items.Clear();
 
                     refinery.OutputInventory.GetItems(items);
 
@@ -232,6 +243,8 @@ namespace IngameScript
                         refinery.InputInventory.TransferItemTo(overflowInventory, i, null, true, items[i].Amount);
                     }
                 }
+               
+                
             }
 
             if (waitFlushTicks > 0 && waitTicks > 0)
@@ -302,7 +315,8 @@ namespace IngameScript
 
                 for (var i = sourceItems.Count - 1; i >= 0; i--)
                 {
-                    refinery.InputInventory.TransferItemFrom(refineInventory, i, null, true, sourceItems[i].Amount);
+                    var qtyToTransfer = (int)sourceItems[i].Amount / managedRefineries.Count;
+                    refinery.InputInventory.TransferItemFrom(refineInventory, i, null, true, qtyToTransfer);
                 }
                
             }
