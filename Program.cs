@@ -22,7 +22,7 @@ namespace IngameScript
 {
     public partial class Program : MyGridProgram
     {
-        string version = "v0.2.0";
+        string version = "v0.2.1";
         
         // Keyword Management
         string overflowTag = "[Overflow]";
@@ -52,7 +52,6 @@ namespace IngameScript
             public IMyInventory Inventory;
             public bool OresFlag = false;
             public bool OverflowFlag = false;
-            public bool RefineFlag = false;
         }
         
         List<RefineryContainer> refineryContainers = new List<RefineryContainer>();
@@ -70,9 +69,6 @@ namespace IngameScript
         
         MyIni pbIni = new MyIni();
         string refineryOrder = "Iron,Nickel,Cobalt,Silicon,Magnesium,Gold,Silver,Platinum,Uranium";
-
-        IMyCargoContainer refineCargo;
-        IMyInventory refineInventory;
         
         Dictionary<string, int> OrePriorityMap = new Dictionary<string, int>
         {
@@ -104,7 +100,7 @@ namespace IngameScript
            
            GridTerminalSystem.GetBlocksOfType<IMyRefinery>(managedRefineries, refinery => refinery.CubeGrid == Me.CubeGrid);
 
-           GridTerminalSystem.GetBlocksOfType<IMyCargoContainer>(taggedCargos, container => (container.CustomName.Contains(oresTag) || container.CustomName.Contains(overflowTag)));
+           GridTerminalSystem.GetBlocksOfType<IMyCargoContainer>(taggedCargos, container => container.CustomName.Contains(oresTag) || container.CustomName.Contains(overflowTag));
          
            foreach (var cargoContainer in taggedCargos)
            {
@@ -208,13 +204,6 @@ namespace IngameScript
                 priority = ReversedOrePriorityMap[0];
                 
                 var items = new List<MyInventoryItem>();
-                
-                refineInventory.GetItems(items);
-
-                for (var i = items.Count - 1; i >= 0; i--)
-                {
-                    refineInventory.TransferItemTo(overflowInventory, i, null, true, items[i].Amount);
-                }
 
                 
                 foreach (var refinery in managedRefineries)
@@ -281,16 +270,31 @@ namespace IngameScript
                 {
                     if (inventoryItems[i].Type.SubtypeId == priority)
                     {
+                        priorityOreFound = true;
                         foreach (var refinery in refineryContainers)
                         {
-                            priorityOreFound = true;
                             inventory.TransferItemTo(refinery.InventoryIn, i, null, true, (int)inventoryItems[i].Amount / managedRefineries.Count);
                         }
                     }
                 }
             }
 
-            if (refineInventory.ItemCount == 0 && !priorityOreFound)
+            foreach (var refinery in managedRefineries)
+            {
+                inventoryItems.Clear();
+
+                refinery.InputInventory.GetItems(inventoryItems);
+
+                for (var i = inventoryItems.Count - 1; i >= 0; i--)
+                {
+                    if (inventoryItems[i].Type.SubtypeId == priority)
+                    {
+                        priorityOreFound = true;
+                    }
+                }
+            }
+
+            if (!priorityOreFound)
             {
                 if (pCount == 9)
                     pCount = 0;
