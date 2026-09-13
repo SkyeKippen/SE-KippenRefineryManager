@@ -22,7 +22,7 @@ namespace IngameScript
 {
     public partial class Program : MyGridProgram
     {
-        string version = "v0.2.1";
+        string version = "v0.2.2";
         
         // Keyword Management
         string overflowTag = "[Overflow]";
@@ -271,9 +271,15 @@ namespace IngameScript
                     if (inventoryItems[i].Type.SubtypeId == priority)
                     {
                         priorityOreFound = true;
+                        
+                        int amountToTransfer = (int)inventoryItems[i].Amount / managedRefineries.Count;
+                        if (amountToTransfer < managedRefineries.Count)
+                            amountToTransfer = managedRefineries.Count;
+                  
                         foreach (var refinery in refineryContainers)
                         {
-                            inventory.TransferItemTo(refinery.InventoryIn, i, null, true, (int)inventoryItems[i].Amount / managedRefineries.Count);
+                            
+                            inventory.TransferItemTo(refinery.InventoryIn, i, null, true, amountToTransfer);
                         }
                     }
                 }
